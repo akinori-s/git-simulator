@@ -1,6 +1,25 @@
-import './App.css'
 import { useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button'
+
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+  SidebarTrigger,
+  SidebarInset,
+} from '@/components/ui/sidebar'
+import {
+  Home,
+  LayoutDashboard,
+  MessageCircle,
+  Settings,
+  GitBranch,
+} from 'lucide-react'
 import '@xyflow/react/dist/style.css'
 import {
   ReactFlow,
@@ -67,27 +86,65 @@ function App() {
   );
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <Button >
-        Add Node
-      </Button>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeDrag={onNodeDrag}
-        nodesDraggable={false}
-        fitView
-        fitViewOptions={fitViewOptions}
-        defaultEdgeOptions={defaultEdgeOptions}
-      >
-        <Background />
-        <Controls />
-        <MiniMap />
-      </ReactFlow>
-    </div>
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarContent>
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuButton>
+                <Home />
+                <span>Dashboard</span>
+              </SidebarMenuButton>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarSeparator />
+          <SidebarGroup>
+            <SidebarMenu>
+              <SidebarMenuButton>
+                <LayoutDashboard />
+                <span>Graph</span>
+              </SidebarMenuButton>
+              <SidebarMenuItem>
+                <GitBranch />
+                <span>Branches</span>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <MessageCircle />
+                <span>Commits</span>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+          <SidebarSeparator />
+          <SidebarGroup>
+            <SidebarMenu>
+              <SidebarMenuButton>
+                  <Settings />
+                  <span>Add Node</span>
+              </SidebarMenuButton>
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset>
+        <SidebarTrigger className='absolute'/>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeDrag={onNodeDrag}
+            nodesDraggable={false}
+            fitView
+            fitViewOptions={fitViewOptions}
+            defaultEdgeOptions={defaultEdgeOptions}
+          >
+            <Background />
+            <Controls />
+            <MiniMap />
+          </ReactFlow>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
