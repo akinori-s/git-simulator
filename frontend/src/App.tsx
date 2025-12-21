@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 import {
   SidebarProvider,
@@ -71,6 +71,7 @@ const onNodeDrag: OnNodeDrag = (_, node) => {
 function App() {
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  const [currentHead, setCurrentHead] = useState('2');
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -84,6 +85,26 @@ function App() {
     (connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges],
   );
+
+  const highlightedNodes = useMemo(
+    () =>
+      nodes.map((node: Node) => ({
+        ...node,
+        style: node.id === currentHead
+          ? {
+              background: '#e7f3ff',
+              stroke: '#007acc',
+              strokeWidth: 3,
+            }
+          : node.style,
+      })),
+    [nodes, currentHead],
+  );
+
+  const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
+    console.log(`git checkout ${node.id}`);
+    setCurrentHead(node.id);
+  }, [setCurrentHead]);
 
   return (
     <SidebarProvider>
@@ -128,12 +149,14 @@ function App() {
       <SidebarInset>
         <SidebarTrigger className='absolute'/>
           <ReactFlow
-            nodes={nodes}
+            nodes={highlightedNodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeDrag={onNodeDrag}
+            onNodeDoubleClick={onNodeDoubleClick}
+						zoomOnDoubleClick={false}
             nodesDraggable={false}
             fitView
             fitViewOptions={fitViewOptions}
