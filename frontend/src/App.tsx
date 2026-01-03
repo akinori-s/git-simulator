@@ -27,7 +27,7 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
+  // MiniMap,
   // addEdge,
   // applyNodeChanges,
   // applyEdgeChanges,
@@ -98,13 +98,28 @@ function App() {
       branchY.set(branch, index * laneHeight);
     });
 
-    // Assign each commit a topological "generation" for X positioning
-    // Simple: use incremental counter based on discovery order (DFS)
-    const commitX = new Map<string, number>();
-    let xCounter = 0;
+    // Determine which lane a commit belongs to (primary branch)
+    const commitLane = new Map<string, string>();
+
+    // Walk from each branch tip down to root, claiming commits for that lane
+    for (const branch of branchOrder) {
+      let commitId = branches.get(branch);
+      while (commitId && !commitLane.has(commitId)) {
+        commitLane.set(commitId, branch);
+
+        const commit = allCommits.find((c: Commit) => c.id === commitId);
+        if (!commit || commit.parents.length === 0) break;
+
+        // For merges: only follow first parent (Git convention)
+        commitId = commit.parents[0];
+      }
+    }
 
     const visited = new Set<string>();
     const stack: string[] = [];
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+    const NODE_X_SPACING = 200;
 
     // Start from all branch tips
     branches.forEach((commitId: CommitID) => {
@@ -119,9 +134,46 @@ function App() {
       const commit = allCommits.find((c: Commit) => c.id === commitId);
       if (!commit) continue;
 
-      // Assign X position
-      commitX.set(commitId, xCounter * 200); // 200px per generation
-      xCounter++;
+      const primaryBranch = commitLane.get(commit.id) || 'unknown';
+
+      nodes.push({
+        id: commit.id,
+        data: {
+          label: (
+            <div className="text-xs text-center">
+              <div className="font-bold">{commit.message}</div>
+              <div className="text-gray-500">{commit.id.slice(0, 7)}</div>
+              <div className="text-gray-500">{primaryBranch}</div>
+            </div>
+          ),
+        },
+        position: {
+          x: commit.seq_id * NODE_X_SPACING || 0,
+          y: branchY.get(primaryBranch) || 0,
+        },
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+        style: {
+          background: commit.id === branches.get(currentBranch) ? '#e7f3ff' : '#fff',
+          border: commit.id === branches.get(currentBranch) ? '1px solid #007acc' : '1px solid #999',
+          borderRadius: '8px',
+          padding: '10px',
+          width: 140,
+        },
+      });
+
+      commit.parents.forEach((parentId: CommitID, index: number) => {
+        const isMergeSecondParent = index > 0;
+        edges.push({
+          id: `e-${parentId}-${commit.id}${isMergeSecondParent ? '-merge' : ''}`,
+          source: parentId,
+          target: commit.id,
+          type: 'smoothstep',
+          markerEnd: { type: 'arrowclosed' },
+          style: { stroke: isMergeSecondParent ? '#ff6b6b' : '#999', strokeWidth: 2 },
+          animated: isMergeSecondParent,
+        });
+      });
 
       // Push parents (in reverse order to preserve left-to-right)
       commit.parents.slice().reverse().forEach((parentId: CommitID) => {
@@ -131,98 +183,114 @@ function App() {
       });
     }
 
-    // Determine which lane a commit belongs to (primary branch)
-    const commitLane = new Map<string, string>();
-    const laneCommits = new Map<string, Set<string>>();
+    // Create nodes
+    // allCommits.map((commit: Commit) => {
+    //   const primaryBranch = commitLane.get(commit.id) || 'unknown';
+    //   const baseY = branchY.get(primaryBranch) || 0;
 
-    // Initialize sets
-    branchOrder.forEach(branch => laneCommits.set(branch, new Set()));
+    //   // Stagger vertically within lane to avoid perfect alignment
+    //   const staggerOffset = (parseInt(commit.id.split('-').pop() || '0', 10) % 7) * 15 - 45;
 
-    // Walk from each branch tip down to root, claiming commits for that lane
-    for (const branch of branchOrder) {
-      let commitId = branches.get(branch);
-      while (commitId && !commitLane.has(commitId)) {
-        commitLane.set(commitId, branch);
-        laneCommits.get(branch)!.add(commitId);
+    //   return {
+    //     id: commit.id,
+    //     data: {
+    //       label: (
+    //         <div className="text-xs text-center">
+    //           <div className="font-bold">{commit.message}</div>
+    //           <div className="text-gray-500">{commit.id.slice(0, 7)}</div>
+    //         </div>
+    //       ),
+    //     },
+    //     position: {
+    //       x: commitX.get(commit.id) || 0,
+    //       y: baseY + staggerOffset,
+    //     },
+    //     sourcePosition: Position.Right,
+    //     targetPosition: Position.Left,
+    //     style: {
+    //       background: commit.id === branches.get(currentBranch) ? '#e7f3ff' : '#fff',
+    //       border: commit.id === branches.get(currentBranch) ? '3px solid #007acc' : '1px solid #999',
+    //       borderRadius: '8px',
+    //       padding: '10px',
+    //       width: 140,
+    //     },
+    //   };
+    // });
 
-        const commit = allCommits.find((c: Commit) => c.id === commitId);
-        if (!commit || commit.parents.length === 0) break;
+    // allCommits.forEach((commit: Commit) => {
+    //   commit.parents.forEach((parentId: CommitID, index: number) => {
+    //     const isMergeSecondParent = index > 0;
+    //     edges.push({
+    //       id: `e-${parentId}-${commit.id}${isMergeSecondParent ? '-merge' : ''}`,
+    //       source: parentId,
+    //       target: commit.id,
+    //       type: 'bezier',
+    //       markerEnd: { type: 'arrowclosed' },
+    //       style: { stroke: isMergeSecondParent ? '#ff6b6b' : '#999', strokeWidth: 2 },
+    //       animated: isMergeSecondParent,
+    //     });
+    //   });
+    // });
 
-        // For merges: only follow first parent (Git convention)
-        commitId = commit.parents[0];
-      }
-    }
+
+
+
 
     // Create nodes
-    const nodes: Node[] = allCommits.map((commit: Commit) => {
-      const primaryBranch = commitLane.get(commit.id) || 'unknown';
-      const baseY = branchY.get(primaryBranch) || 0;
+    // const nodes: Node[] = allCommits.map((commit: Commit) => {
+    //   const primaryBranch = commitLane.get(commit.id) || 'unknown';
+    //   const baseY = branchY.get(primaryBranch) || 0;
 
-      // Stagger vertically within lane to avoid perfect alignment
-      const staggerOffset = (parseInt(commit.id.split('-').pop() || '0', 10) % 7) * 15 - 45;
+    //   // Stagger vertically within lane to avoid perfect alignment
+    //   const staggerOffset = (parseInt(commit.id.split('-').pop() || '0', 10) % 7) * 15 - 45;
 
-      return {
-        id: commit.id,
-        data: {
-          label: (
-            <div className="text-xs text-center">
-              <div className="font-bold">{commit.message}</div>
-              <div className="text-gray-500">{commit.id.slice(0, 7)}</div>
-            </div>
-          ),
-        },
-        position: {
-          x: commitX.get(commit.id) || 0,
-          y: baseY + staggerOffset,
-        },
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        style: {
-          background: commit.id === branches.get(currentBranch) ? '#e7f3ff' : '#fff',
-          border: commit.id === branches.get(currentBranch) ? '3px solid #007acc' : '1px solid #999',
-          borderRadius: '8px',
-          padding: '10px',
-          width: 140,
-        },
-      };
-    });
+    //   return {
+    //     id: commit.id,
+    //     data: {
+    //       label: (
+    //         <div className="text-xs text-center">
+    //           <div className="font-bold">{commit.message}</div>
+    //           <div className="text-gray-500">{commit.id.slice(0, 7)}</div>
+    //         </div>
+    //       ),
+    //     },
+    //     position: {
+    //       x: commitX.get(commit.id) || 0,
+    //       y: baseY + staggerOffset,
+    //     },
+    //     sourcePosition: Position.Right,
+    //     targetPosition: Position.Left,
+    //     style: {
+    //       background: commit.id === branches.get(currentBranch) ? '#e7f3ff' : '#fff',
+    //       border: commit.id === branches.get(currentBranch) ? '3px solid #007acc' : '1px solid #999',
+    //       borderRadius: '8px',
+    //       padding: '10px',
+    //       width: 140,
+    //     },
+    //   };
+    // });
 
     // Create edges
-    const edges: Edge[] = [];
-    allCommits.forEach((commit: Commit) => {
-      commit.parents.forEach((parentId: CommitID, index: number) => {
-        const isMergeSecondParent = index > 0;
-        edges.push({
-          id: `e-${parentId}-${commit.id}${isMergeSecondParent ? '-merge' : ''}`,
-          source: parentId,
-          target: commit.id,
-          type: 'bezier',
-          markerEnd: { type: 'arrowclosed' },
-          style: { stroke: isMergeSecondParent ? '#ff6b6b' : '#999', strokeWidth: 2 },
-          animated: isMergeSecondParent,
-        });
-      });
-    });
+    // const edges: Edge[] = [];
+    // allCommits.forEach((commit: Commit) => {
+    //   commit.parents.forEach((parentId: CommitID, index: number) => {
+    //     const isMergeSecondParent = index > 0;
+    //     edges.push({
+    //       id: `e-${parentId}-${commit.id}${isMergeSecondParent ? '-merge' : ''}`,
+    //       source: parentId,
+    //       target: commit.id,
+    //       type: 'bezier',
+    //       markerEnd: { type: 'arrowclosed' },
+    //       style: { stroke: isMergeSecondParent ? '#ff6b6b' : '#999', strokeWidth: 2 },
+    //       animated: isMergeSecondParent,
+    //     });
+    //   });
+    // });
 
     console.log("nodes", nodes);
     console.log("edges", edges);
     return { nodes, edges };
   }, [repo]); // Depend on repo (or [currentRepoId] to optimize if appropriate)
-
-  const highlightedNodes = useMemo(
-    () =>
-      nodes.map((node: Node) => ({
-        ...node,
-        style: node.id === currentHead
-          ? {
-              background: '#e7f3ff',
-              stroke: '#007acc',
-              strokeWidth: 3,
-            }
-          : node.style,
-      })),
-    [nodes, currentHead],
-  );
 
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     console.log(`git checkout ${node.id}`);
@@ -266,7 +334,7 @@ function App() {
                       </strong>
                       {repos.size > 1 && (
                         <button onClick={() => deleteRepo(id)} style={{ marginLeft: '8px', fontSize: '10px' }}>
-                          ×
+                          X
                         </button>
                       )}
                     </li>
@@ -283,9 +351,34 @@ function App() {
                     ["version", "2.1.4"],
                     ["env", "staging"]
                   ]))} className=''>
-                    AAAAAAAAAAAAAAAA
-                </Button          >
+                    git commit
+                </Button>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Button onClick={() => repo?.branch(prompt('Repo name') || 'new-branch')} className=''>
+                    git branch
+                </Button>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+          <SidebarSeparator />
+          <SidebarGroup>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <MessageCircle />
+                <span>Branches</span>
+              </SidebarMenuItem>
+              {
+                repo ?
+                [...repo?.branches.keys()].map((branchName, idx) => (
+                  <SidebarMenuItem key={idx}>
+                    <Button onClick={() => repo?.checkout(branchName)} className=''>
+                        {branchName}
+                    </Button>
+                  </SidebarMenuItem>
+                ))
+                : <></>
+              }
             </SidebarMenu>
           </SidebarGroup>
           <SidebarSeparator />

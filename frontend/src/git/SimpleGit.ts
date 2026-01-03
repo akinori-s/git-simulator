@@ -2,6 +2,7 @@ export type CommitID = string;
 
 export interface Commit {
   readonly id: CommitID;
+  readonly seq_id: number;
   readonly message: string;
   readonly parents: readonly CommitID[];
   readonly files: ReadonlyMap<string, string>;
@@ -12,6 +13,7 @@ export interface Commit {
 export class SimpleGit {
   private commits = new Map<CommitID, Commit>();
   private branches = new Map<string, CommitID>();
+  private seq_id_counter = 0;
   private head = 'main';
   private nextId = 0;
   private listeners = new Set<() => void>();
@@ -42,13 +44,15 @@ export class SimpleGit {
 
     const newCommit: Commit = {
       id: newId,
-      message,
-      parents,
+      seq_id: this.seq_id_counter,
+      message: message,
+      parents: parents,
       files: new Map(files),
       author: 'user',
       timestamp: Date.now(),
     };
 
+    this.seq_id_counter++;
     this.commits.set(newId, newCommit);
     this.branches.set(this.head, newId);
     this.notify();
@@ -77,6 +81,7 @@ export class SimpleGit {
     const newId = this.generateId();
     const newCommit: Commit = {
       id: newId,
+      seq_id: this.seq_id_counter,
       message: `Merge branch '${branch}' into ${this.head}`,
       parents: [base, other],
       files: this.commits.get(base)?.files ?? new Map(),
@@ -84,6 +89,7 @@ export class SimpleGit {
       timestamp: Date.now(),
     };
 
+    this.seq_id_counter++;
     this.commits.set(newId, newCommit);
     this.branches.set(this.head, newId);
     this.notify();
