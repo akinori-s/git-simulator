@@ -1,4 +1,4 @@
-type CommitID = string;
+export type CommitID = string;
 
 export interface Commit {
   readonly id: CommitID;

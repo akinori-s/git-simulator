@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import repoManager from './repoManager';
-import { SimpleGit } from './SimpleGit';
+import { type Commit, SimpleGit } from './SimpleGit';
 
 export function useCurrentRepo(): {
   git: SimpleGit;
   name: string;
-  commits: readonly any[];
-  allCommits: readonly any[];
+  commits: readonly Commit[];
+  allCommits: readonly Commit[];
   branches: ReadonlyMap<string, string>;
   currentBranch: string;
   commit: SimpleGit['commit'];
