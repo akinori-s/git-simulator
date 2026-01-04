@@ -7,20 +7,29 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
   SidebarSeparator,
   SidebarTrigger,
   SidebarInset,
 } from '@/components/ui/sidebar'
 import {
-  Home,
-  LayoutDashboard,
-  MessageCircle,
-  Settings,
-  GitBranch,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  File,
+  Folder,
+  GitCompareArrows,
+  Trash2,
+  ChevronRight,
 } from 'lucide-react'
 import '@xyflow/react/dist/style.css'
 import {
@@ -75,7 +84,7 @@ function App() {
 
     // Assign each branch a Y-lane (row)
     const branchOrder = Array.from<string>(branches.keys());
-    const laneHeight = 120; // Vertical spacing between branch lanes
+    const laneHeight = 70; // Vertical spacing between branch lanes
     const branchY = new Map<string, number>();
     branchOrder.forEach((branch, index) => {
       branchY.set(branch, index * laneHeight);
@@ -102,7 +111,8 @@ function App() {
     const stack: string[] = [];
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const NODE_X_SPACING = 200;
+    const NODE_WIDTH = 120;
+    const NODE_X_SPACING = NODE_WIDTH + 45;
 
     // Start from all branch tips
     branches.forEach((commitId: CommitID) => {
@@ -141,7 +151,7 @@ function App() {
           border: commit.id === branches.get(currentBranch) ? '1px solid #007acc' : '1px solid #999',
           borderRadius: '8px',
           padding: '5px',
-          width: 140,
+          width: NODE_WIDTH,
         },
       });
 
@@ -151,7 +161,7 @@ function App() {
           id: `e-${parentId}-${commit.id}${isMergeSecondParent ? '-merge' : ''}`,
           source: parentId,
           target: commit.id,
-          type: 'smoothstep',
+          type: 'straight',
           markerEnd: { type: 'arrowclosed' },
           style: { stroke: isMergeSecondParent ? '#ff6b6b' : '#999', strokeWidth: 2 },
           animated: isMergeSecondParent,
@@ -173,93 +183,83 @@ function App() {
     <SidebarProvider>
       <Sidebar>
         <SidebarContent>
-          <SidebarHeader>
-            <SidebarMenu>
-              <SidebarMenuButton>
-                <Home />
-                <span>Dashboard</span>
-              </SidebarMenuButton>
-            </SidebarMenu>
-          </SidebarHeader>
-          <SidebarSeparator />
           <SidebarGroup>
-            <SidebarMenu>
-              <SidebarMenuButton>
-                <LayoutDashboard />
-                <span>Graph</span>
-              </SidebarMenuButton>
-              <SidebarMenuItem>
-                <GitBranch />
-                <span>Projects</span>
-                <br/>
-                <button onClick={() => createRepo(prompt('Repo name') || 'new-repo')}>
-                  + New Repo
-                </button>
-                <ul>
-                  {Array.from(repos.entries()).map(([id, git]) => (
-                    <li key={id}>
-                      <strong
-                        style={{ cursor: 'pointer', color: id === currentRepoId ? 'blue' : 'black' }}
-                        onClick={() => switchTo(id)}
-                      >
-                        {git.getName()}
-                      </strong>
-                      {repos.size > 1 && (
-                        <button onClick={() => deleteRepo(id)} style={{ marginLeft: '8px', fontSize: '10px' }}>
-                          X
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <MessageCircle />
-                <span>Commits</span>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <Button onClick={() => repo?.commit(prompt('Commit message') || 'commit', new Map<string, string>([
-                    ["mode", "development"],
-                    ["version", "2.1.4"],
-                    ["env", "staging"]
-                  ]))} className=''>
-                    git commit
-                </Button>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <Button onClick={() => repo?.branch(prompt('Branch name') || 'new-branch')} className=''>
-                    git branch
-                </Button>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
-          <SidebarSeparator />
-          <SidebarGroup>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <MessageCircle />
-                <span>Branches</span>
-              </SidebarMenuItem>
-              {
-                repo ?
-                [...repo?.branches.keys()].map((branchName, idx) => (
-                  <SidebarMenuItem key={idx}>
-                    <Button onClick={() => repo?.checkout(branchName)} className=''>
-                        {branchName}
-                    </Button>
+            <SidebarGroupLabel>Repositories</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => createRepo(prompt('Repo name') || 'new-repo')}>
+                    <GitCompareArrows />
+                    New Repository
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {Array.from(repos.entries()).map(([id, git]) => (
+                  <SidebarMenuItem key={id}>
+                    <SidebarMenuButton onClick={() => switchTo(id)} isActive={id === currentRepoId}>
+                      <File />
+                      {git.getName()}
+                    </SidebarMenuButton>
+                    {repos.size > 1 && (
+                      <SidebarMenuAction showOnHover>
+                        <Trash2 onClick={() => deleteRepo(id)}/>
+                      </SidebarMenuAction>
+                    )}
                   </SidebarMenuItem>
-                ))
-                : <></>
-              }
-            </SidebarMenu>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+          <SidebarSeparator />
+          <SidebarGroup>
+            <SidebarGroupLabel>Commits</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <Button onClick={() => repo?.commit(prompt('Commit message') || 'commit', new Map<string, string>([
+                      ["mode", "development"],
+                      ["version", "2.1.4"],
+                      ["env", "staging"]
+                    ]))} className=''>
+                      git commit
+                  </Button>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Button onClick={() => repo?.branch(prompt('Branch name') || 'new-branch')} className=''>
+                      git branch
+                  </Button>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
           </SidebarGroup>
           <SidebarSeparator />
           <SidebarGroup>
             <SidebarMenu>
-              <SidebarMenuButton>
-                  <Settings />
-                  <span>Add Node</span>
-              </SidebarMenuButton>
+              <SidebarMenuItem>
+                <Collapsible
+                  className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
+                  defaultOpen={true}
+                >
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton>
+                      <ChevronRight className="transition-transform" />
+                      <Folder />
+                      Branches
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {
+                        repo &&
+                        [...repo?.branches.keys()].map((branchName, idx) => (
+                          <SidebarMenuButton key={idx} onClick={() => repo?.checkout(branchName)} isActive={repo?.currentBranch === branchName}>
+                            {branchName}
+                          </SidebarMenuButton>
+                        ))
+                      }
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </Collapsible>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
